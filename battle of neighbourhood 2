@@ -1,0 +1,410 @@
+The Battle of Neighborhood 2
+Introduction
+This project is to take a glimpse at different neighborhoods of Providence,RI and Hartford,CT. Both cities are capital cities of their states and are major cities between New York City and Boston in East Coast.
+Travelers from inside and outside of New England area who want to dicide where to visit and business owners may be interested in the project.¶
+Data
+I organized two data sets of zipcode and neighborhoods with latitude and longtude for each city from multiple online sources
+Methodology
+Basic skills from week 3 lab
+Majorly relied on Foursquare API to retrieve all venues of each neighborhoods, then group by each neighborhoods and to count how many venues before filter top 10 most common venue types of each neighborhoods
+In [ ]:
+## Data where you describe the data that will be used to solve the problem and the source of the data.
+In [1]:
+# Import the required library
+import numpy as np
+import pandas as pd
+In [3]:
+# Load data of Providence,RI
+df_pvd=pd.read_excel("pvd.xlsx")
+df_pvd.head()
+Out[3]:
+Zipcode	Neighborhoods	Latitude	Longitude
+0	2906	Blackstone	41.846388	-71.385406
+1	2904	Charles	41.812104	-71.429089
+2	2906	College Hill	41.830157	-71.403219
+3	2903	Downtown	41.822533	-71.415094
+4	2908	Elmhurst	41.840911	-71.438842
+In [4]:
+# Add '0' before '2' of each zipcode
+df_pvd['Zipcode']='0'+ df_pvd['Zipcode'].astype(str)
+In [5]:
+df_pvd.head()
+Out[5]:
+Zipcode	Neighborhoods	Latitude	Longitude
+0	02906	Blackstone	41.846388	-71.385406
+1	02904	Charles	41.812104	-71.429089
+2	02906	College Hill	41.830157	-71.403219
+3	02903	Downtown	41.822533	-71.415094
+4	02908	Elmhurst	41.840911	-71.438842
+In [6]:
+df_pvd.shape
+Out[6]:
+(30, 4)
+In [7]:
+# Load data of Hartford,CT
+df_bdl=pd.read_excel("bdl.xlsx")
+df_bdl.head()
+Out[7]:
+Zipcode	Neighborhoods	Latitude	Longitude
+0	6105	Asylum Hill	41.773149	-72.694937
+1	6106	Barry Square	41.747158	-72.683114
+2	6114	Barry Square	41.747158	-72.683114
+3	6106	Behind The Rocks	41.745071	-72.700849
+4	6112	Blue Hills	41.812877	-72.697593
+In [8]:
+# Add '0' before '6' of each zipcode
+df_bdl['Zipcode']='0'+ df_bdl['Zipcode'].astype(str)
+In [9]:
+df_bdl.head()
+Out[9]:
+Zipcode	Neighborhoods	Latitude	Longitude
+0	06105	Asylum Hill	41.773149	-72.694937
+1	06106	Barry Square	41.747158	-72.683114
+2	06114	Barry Square	41.747158	-72.683114
+3	06106	Behind The Rocks	41.745071	-72.700849
+4	06112	Blue Hills	41.812877	-72.697593
+In [10]:
+df_bdl.shape
+Out[10]:
+(25, 4)
+In [11]:
+# Import mapping libraries
+from geopy.geocoders import Nominatim
+import folium
+In [17]:
+# Importing libraries
+import numpy as np # library to handle data in a vectorized manner
+
+import pandas as pd # library for data analsysis
+pd.set_option('display.max_columns', None)
+pd.set_option('display.max_rows', None)
+
+import json # library to handle JSON files
+
+from geopy.geocoders import Nominatim # convert an address into latitude and longitude values
+
+import requests # library to handle requests
+from pandas.io.json import json_normalize # tranform JSON file into a pandas dataframe
+
+# Matplotlib and associated plotting modules
+import matplotlib.cm as cm
+import matplotlib.colors as colors
+
+# import k-means from clustering stage
+from sklearn.cluster import KMeans
+
+import folium # map rendering library
+
+print('Libraries imported.')
+Libraries imported.
+In [18]:
+# Working with Foursquare
+CLIENT_ID = 'FD5IPVIXWPQA0FVEOHMZPM0MXPQIHKDQPO20JMZMCK1EA2LN' # your Foursquare ID
+CLIENT_SECRET = 'SXF5QRXJ4T1UVTLZFOXXSTVBXA54FMAOE1PMI0CP5X2IKAP0' # your Foursquare Secret
+VERSION = '20181224' # Foursquare API version
+
+print('My credentails:')
+print('CLIENT_ID: ' + CLIENT_ID)
+print('CLIENT_SECRET:' + CLIENT_SECRET)
+My credentails:
+CLIENT_ID: FD5IPVIXWPQA0FVEOHMZPM0MXPQIHKDQPO20JMZMCK1EA2LN
+CLIENT_SECRET:SXF5QRXJ4T1UVTLZFOXXSTVBXA54FMAOE1PMI0CP5X2IKAP0
+In [19]:
+def getNearbyVenues(names, latitudes, longitudes, radius=500):
+    
+    venues_list=[]
+    for name, lat, lng in zip(names, latitudes, longitudes):
+        
+            
+        # create the API request URL
+        url = 'https://api.foursquare.com/v2/venues/explore?&client_id={}&client_secret={}&v={}&ll={},{}&radius={}&limit=100'.format(
+            CLIENT_ID, 
+            CLIENT_SECRET, 
+            VERSION, 
+            lat, 
+            lng, 
+            radius)
+            
+        # make the GET request
+        results = requests.get(url).json()["response"]['groups'][0]['items']
+        
+        # return only relevant information for each nearby venue
+        venues_list.append([(
+            name, 
+            lat, 
+            lng, 
+            v['venue']['name'], 
+            v['venue']['location']['lat'], 
+            v['venue']['location']['lng'],  
+            v['venue']['categories'][0]['name']) for v in results])
+
+    nearby_venues = pd.DataFrame([item for venue_list in venues_list for item in venue_list])
+    nearby_venues.columns = ['Neighborhood', 
+                  'Neighborhood Latitude', 
+                  'Neighborhood Longitude', 
+                  'Venue', 
+                  'Venue Latitude', 
+                  'Venue Longitude', 
+                  'Venue Category']
+    
+    return(nearby_venues)
+In [26]:
+pvd_venues=getNearbyVenues(df_pvd['Neighborhoods'], df_pvd['Latitude'], df_pvd['Longitude'])
+bdl_venues=getNearbyVenues(df_bdl['Neighborhoods'], df_bdl['Latitude'], df_bdl['Longitude'])
+In [27]:
+pvd_venues.head()
+Out[27]:
+Neighborhood	Neighborhood Latitude	Neighborhood Longitude	Venue	Venue Latitude	Venue Longitude	Venue Category
+0	Charles	41.812104	-71.429089	Armory Park	41.812957	-71.431897	Plaza
+1	Charles	41.812104	-71.429089	Hudson Street Delicatessen	41.813256	-71.434625	Deli / Bodega
+2	Charles	41.812104	-71.429089	Family Dollar	41.813362	-71.427587	Discount Store
+3	Charles	41.812104	-71.429089	Tropical Liquors	41.812774	-71.429217	Liquor Store
+4	Charles	41.812104	-71.429089	John's NY System	41.812643	-71.429725	Breakfast Spot
+In [29]:
+bdl_venues.head()
+Out[29]:
+Neighborhood	Neighborhood Latitude	Neighborhood Longitude	Venue	Venue Latitude	Venue Longitude	Venue Category
+0	Asylum Hill	41.773149	-72.694937	Au Bon Pain	41.773804	-72.699015	Café
+1	Asylum Hill	41.773149	-72.694937	Sigourney Square Park	41.775729	-72.693938	Park
+2	Asylum Hill	41.773149	-72.694937	Saint Francis Main Cafeteria	41.774191	-72.698254	Café
+3	Asylum Hill	41.773149	-72.694937	Women's Auxiliary Gift Shop	41.773952	-72.698893	Gift Shop
+4	Asylum Hill	41.773149	-72.694937	Saint Francis Fitness Center	41.773976	-72.700199	Gym
+In [30]:
+pvd_venues.shape
+Out[30]:
+(512, 7)
+In [31]:
+bdl_venues.shape
+Out[31]:
+(460, 7)
+In [35]:
+# Number of venues of each 
+pvd_venues.groupby('Neighborhood').count()
+Out[35]:
+Neighborhood Latitude	Neighborhood Longitude	Venue	Venue Latitude	Venue Longitude	Venue Category
+Neighborhood						
+Charles	10	10	10	10	10	10
+College Hill	50	50	50	50	50	50
+Downtown	72	72	72	72	72	72
+Elmhurst	5	5	5	5	5	5
+Elmwood	4	4	4	4	4	4
+Federal Hill	118	118	118	118	118	118
+Fox Point	72	72	72	72	72	72
+Hartford	7	7	7	7	7	7
+Hope (Summit)	42	42	42	42	42	42
+Lower South Providence	2	2	2	2	2	2
+Manton	14	14	14	14	14	14
+Mount Hope	18	18	18	18	18	18
+Mount Pleasant	10	10	10	10	10	10
+Olneyville	7	7	7	7	7	7
+Reservoir	14	14	14	14	14	14
+Silver Lake	11	11	11	11	11	11
+Smith Hill	26	26	26	26	26	26
+South Elmwood	22	22	22	22	22	22
+Valley	8	8	8	8	8	8
+In [36]:
+bdl_venues.groupby('Neighborhood').count()
+Out[36]:
+Neighborhood Latitude	Neighborhood Longitude	Venue	Venue Latitude	Venue Longitude	Venue Category
+Neighborhood						
+Asylum Hill	6	6	6	6	6	6
+Barry Square	10	10	10	10	10	10
+Behind The Rocks	2	2	2	2	2	2
+Blue Hills	8	8	8	8	8	8
+Clay Arsenal	8	8	8	8	8	8
+Downtown	188	188	188	188	188	188
+Frog Hollow	6	6	6	6	6	6
+North East	22	22	22	22	22	22
+North Meadows	13	13	13	13	13	13
+Parkville	14	14	14	14	14	14
+Sheldon Charter Oak	8	8	8	8	8	8
+South End	10	10	10	10	10	10
+South Green	28	28	28	28	28	28
+South Meadows	13	13	13	13	13	13
+South West	112	112	112	112	112	112
+Upper Albany	8	8	8	8	8	8
+West End	4	4	4	4	4	4
+In [37]:
+# one hot encoding
+pvd_onehot = pd.get_dummies(pvd_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add neighborhood column back to dataframe
+pvd_onehot['Neighborhood'] = pvd_venues['Neighborhood'] 
+
+# move neighborhood column to the first column
+fixed_columns = [pvd_onehot.columns[-1]] + list(pvd_onehot.columns[:-1])
+pvd_onehot = pvd_onehot[fixed_columns]
+
+pvd_onehot.head()
+Out[37]:
+Neighborhood	American Restaurant	Art Gallery	Asian Restaurant	Automotive Shop	BBQ Joint	Bagel Shop	Bakery	Bar	Beer Garden	Bistro	Bookstore	Breakfast Spot	Brewery	Bubble Tea Shop	Burger Joint	Café	Chinese Restaurant	Chocolate Shop	Clothing Store	Cocktail Bar	Coffee Shop	College Bookstore	College Gym	Concert Hall	Convenience Store	Cosmetics Shop	Creperie	Dance Studio	Deli / Bodega	Department Store	Dessert Shop	Diner	Discount Store	Dive Bar	Donut Shop	Exhibit	Farmers Market	Fast Food Restaurant	Fish Market	Food	Food Truck	French Restaurant	Fried Chicken Joint	Frozen Yogurt Shop	Gas Station	Gastropub	Gay Bar	Gift Shop	Gourmet Shop	Greek Restaurant	Grocery Store	Gym	Gym / Fitness Center	Harbor / Marina	Hardware Store	Hockey Arena	Hookah Bar	Hot Dog Joint	Hotel	Ice Cream Shop	Indian Restaurant	Indie Movie Theater	Italian Restaurant	Japanese Restaurant	Jewelry Store	Karaoke Bar	Korean Restaurant	Liquor Store	Lounge	Mediterranean Restaurant	Mexican Restaurant	Middle Eastern Restaurant	Miscellaneous Shop	Movie Theater	Music Venue	New American Restaurant	Nightclub	Noodle House	Office	Outdoor Supply Store	Park	Performing Arts Venue	Perfume Shop	Pet Store	Pharmacy	Pizza Place	Playground	Plaza	Pool	Public Art	Record Shop	Rental Car Location	Restaurant	Salon / Barbershop	Sandwich Place	Scenic Lookout	Science Museum	Sculpture Garden	Seafood Restaurant	Shipping Store	Skating Rink	Smoke Shop	South American Restaurant	Spa	Spanish Restaurant	Speakeasy	Sports Bar	Steakhouse	Supermarket	Sushi Restaurant	Taco Place	Tea Room	Thai Restaurant	Theater	Thrift / Vintage Store	Vegetarian / Vegan Restaurant	Video Store	Vietnamese Restaurant	Wine Bar	Wine Shop	Yoga Studio
+0	Charles	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+1	Charles	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2	Charles	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+3	Charles	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+4	Charles	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+In [38]:
+pvd_grouped = pvd_onehot.groupby('Neighborhood').mean().reset_index()
+pvd_grouped.head()
+Out[38]:
+Neighborhood	American Restaurant	Art Gallery	Asian Restaurant	Automotive Shop	BBQ Joint	Bagel Shop	Bakery	Bar	Beer Garden	Bistro	Bookstore	Breakfast Spot	Brewery	Bubble Tea Shop	Burger Joint	Café	Chinese Restaurant	Chocolate Shop	Clothing Store	Cocktail Bar	Coffee Shop	College Bookstore	College Gym	Concert Hall	Convenience Store	Cosmetics Shop	Creperie	Dance Studio	Deli / Bodega	Department Store	Dessert Shop	Diner	Discount Store	Dive Bar	Donut Shop	Exhibit	Farmers Market	Fast Food Restaurant	Fish Market	Food	Food Truck	French Restaurant	Fried Chicken Joint	Frozen Yogurt Shop	Gas Station	Gastropub	Gay Bar	Gift Shop	Gourmet Shop	Greek Restaurant	Grocery Store	Gym	Gym / Fitness Center	Harbor / Marina	Hardware Store	Hockey Arena	Hookah Bar	Hot Dog Joint	Hotel	Ice Cream Shop	Indian Restaurant	Indie Movie Theater	Italian Restaurant	Japanese Restaurant	Jewelry Store	Karaoke Bar	Korean Restaurant	Liquor Store	Lounge	Mediterranean Restaurant	Mexican Restaurant	Middle Eastern Restaurant	Miscellaneous Shop	Movie Theater	Music Venue	New American Restaurant	Nightclub	Noodle House	Office	Outdoor Supply Store	Park	Performing Arts Venue	Perfume Shop	Pet Store	Pharmacy	Pizza Place	Playground	Plaza	Pool	Public Art	Record Shop	Rental Car Location	Restaurant	Salon / Barbershop	Sandwich Place	Scenic Lookout	Science Museum	Sculpture Garden	Seafood Restaurant	Shipping Store	Skating Rink	Smoke Shop	South American Restaurant	Spa	Spanish Restaurant	Speakeasy	Sports Bar	Steakhouse	Supermarket	Sushi Restaurant	Taco Place	Tea Room	Thai Restaurant	Theater	Thrift / Vintage Store	Vegetarian / Vegan Restaurant	Video Store	Vietnamese Restaurant	Wine Bar	Wine Shop	Yoga Studio
+0	Charles	0.000000	0.000000	0.000000	0.0	0.00	0.00	0.000000	0.000000	0.000000	0.000000	0.00	0.1	0.000000	0.00	0.000000	0.000000	0.0	0.000000	0.000000	0.000000	0.000000	0.000000	0.00	0.000000	0.0	0.0	0.00	0.00	0.100000	0.000000	0.00	0.00	0.1	0.0	0.0	0.0	0.1	0.0	0.0	0.2	0.000000	0.0	0.0	0.00	0.0	0.000000	0.000000	0.000000	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.000000	0.00	0.0	0.000000	0.00	0.00	0.00	0.000000	0.00	0.00	0.000000	0.00	0.10	0.000000	0.00	0.000000	0.00	0.00	0.0	0.0	0.000000	0.000000	0.000000	0.0	0.0	0.200000	0.00	0.0	0.0	0.000000	0.000000	0.0	0.1	0.00	0.0	0.0	0.0	0.000000	0.00	0.000000	0.00	0.0	0.0	0.0	0.00	0.000000	0.0	0.0	0.000000	0.0	0.00	0.0	0.000000	0.00	0.00	0.0	0.00	0.0	0.000000	0.0	0.00	0.0	0.0	0.000000	0.000000	0.00
+1	College Hill	0.040000	0.020000	0.000000	0.0	0.02	0.02	0.000000	0.000000	0.000000	0.000000	0.02	0.0	0.000000	0.02	0.000000	0.040000	0.0	0.000000	0.020000	0.000000	0.060000	0.000000	0.02	0.000000	0.0	0.0	0.02	0.02	0.000000	0.000000	0.02	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.020000	0.0	0.0	0.02	0.0	0.000000	0.000000	0.020000	0.0	0.020000	0.0	0.0	0.0	0.0	0.0	0.000000	0.02	0.0	0.000000	0.02	0.02	0.02	0.000000	0.02	0.02	0.000000	0.06	0.00	0.000000	0.02	0.040000	0.02	0.02	0.0	0.0	0.000000	0.000000	0.000000	0.0	0.0	0.000000	0.02	0.0	0.0	0.020000	0.040000	0.0	0.0	0.02	0.0	0.0	0.0	0.020000	0.02	0.020000	0.02	0.0	0.0	0.0	0.02	0.000000	0.0	0.0	0.000000	0.0	0.02	0.0	0.000000	0.00	0.02	0.0	0.02	0.0	0.000000	0.0	0.02	0.0	0.0	0.000000	0.000000	0.02
+2	Downtown	0.027778	0.013889	0.013889	0.0	0.00	0.00	0.013889	0.097222	0.013889	0.013889	0.00	0.0	0.013889	0.00	0.027778	0.027778	0.0	0.013889	0.013889	0.027778	0.055556	0.013889	0.00	0.013889	0.0	0.0	0.00	0.00	0.013889	0.013889	0.00	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.027778	0.0	0.0	0.00	0.0	0.013889	0.041667	0.013889	0.0	0.027778	0.0	0.0	0.0	0.0	0.0	0.027778	0.00	0.0	0.041667	0.00	0.00	0.00	0.027778	0.00	0.00	0.013889	0.00	0.00	0.013889	0.00	0.013889	0.00	0.00	0.0	0.0	0.041667	0.013889	0.013889	0.0	0.0	0.013889	0.00	0.0	0.0	0.013889	0.027778	0.0	0.0	0.00	0.0	0.0	0.0	0.041667	0.00	0.027778	0.00	0.0	0.0	0.0	0.00	0.013889	0.0	0.0	0.013889	0.0	0.00	0.0	0.027778	0.00	0.00	0.0	0.00	0.0	0.027778	0.0	0.00	0.0	0.0	0.013889	0.013889	0.00
+3	Elmhurst	0.000000	0.000000	0.000000	0.0	0.00	0.00	0.200000	0.000000	0.000000	0.000000	0.00	0.0	0.000000	0.00	0.000000	0.000000	0.0	0.000000	0.200000	0.000000	0.000000	0.000000	0.00	0.000000	0.0	0.0	0.00	0.00	0.000000	0.000000	0.00	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.0	0.0	0.00	0.0	0.000000	0.000000	0.000000	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.000000	0.00	0.0	0.000000	0.00	0.00	0.00	0.000000	0.00	0.00	0.000000	0.00	0.20	0.000000	0.00	0.000000	0.00	0.00	0.0	0.0	0.000000	0.000000	0.000000	0.0	0.0	0.000000	0.00	0.0	0.0	0.000000	0.000000	0.2	0.0	0.00	0.0	0.0	0.2	0.000000	0.00	0.000000	0.00	0.0	0.0	0.0	0.00	0.000000	0.0	0.0	0.000000	0.0	0.00	0.0	0.000000	0.00	0.00	0.0	0.00	0.0	0.000000	0.0	0.00	0.0	0.0	0.000000	0.000000	0.00
+4	Elmwood	0.000000	0.000000	0.000000	0.0	0.00	0.00	0.000000	0.000000	0.000000	0.000000	0.00	0.0	0.000000	0.00	0.000000	0.000000	0.0	0.000000	0.000000	0.000000	0.000000	0.000000	0.00	0.000000	0.0	0.0	0.00	0.00	0.000000	0.000000	0.00	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.0	0.0	0.00	0.0	0.000000	0.000000	0.000000	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.000000	0.00	0.0	0.000000	0.00	0.00	0.00	0.000000	0.00	0.00	0.000000	0.00	0.25	0.000000	0.00	0.000000	0.00	0.00	0.0	0.0	0.000000	0.000000	0.000000	0.0	0.0	0.000000	0.00	0.0	0.0	0.000000	0.000000	0.0	0.0	0.00	0.0	0.0	0.0	0.000000	0.00	0.250000	0.00	0.0	0.0	0.0	0.00	0.000000	0.0	0.0	0.000000	0.0	0.00	0.0	0.000000	0.25	0.00	0.0	0.00	0.0	0.000000	0.0	0.00	0.0	0.0	0.000000	0.000000	0.00
+In [39]:
+# one hot encoding
+bdl_onehot = pd.get_dummies(bdl_venues[['Venue Category']], prefix="", prefix_sep="")
+
+# add neighborhood column back to dataframe
+bdl_onehot['Neighborhood'] = bdl_venues['Neighborhood'] 
+
+# move neighborhood column to the first column
+fixed_columns = [bdl_onehot.columns[-1]] + list(bdl_onehot.columns[:-1])
+bdl_onehot = bdl_onehot[fixed_columns]
+
+bdl_onehot.head()
+Out[39]:
+Neighborhood	Accessories Store	American Restaurant	Art Museum	Arts & Entertainment	Asian Restaurant	Athletics & Sports	BBQ Joint	Bagel Shop	Bakery	Bank	Bar	Baseball Field	Baseball Stadium	Bistro	Bookstore	Boutique	Bowling Alley	Brewery	Bubble Tea Shop	Burger Joint	Bus Station	Café	Caribbean Restaurant	Chinese Restaurant	Churrascaria	Cocktail Bar	Coffee Shop	College Gym	Concert Hall	Construction & Landscaping	Convenience Store	Cupcake Shop	Cycle Studio	Deli / Bodega	Dessert Shop	Diner	Discount Store	Donut Shop	Event Space	Fast Food Restaurant	Financial or Legal Service	Food	Food & Drink Shop	Food Court	Food Truck	French Restaurant	Furniture / Home Store	Gas Station	Gift Shop	Grocery Store	Gym	Gym / Fitness Center	Hardware Store	Health & Beauty Service	History Museum	Hockey Arena	Hot Dog Joint	Hotel	Hotel Bar	Ice Cream Shop	Indian Restaurant	Insurance Office	Italian Restaurant	Japanese Restaurant	Jewelry Store	Kebab Restaurant	Korean Restaurant	Latin American Restaurant	Lebanese Restaurant	Lingerie Store	Liquor Store	Mediterranean Restaurant	Mexican Restaurant	Middle Eastern Restaurant	Miscellaneous Shop	Motel	Motorcycle Shop	Movie Theater	Music Store	Nightclub	Optical Shop	Other Nightlife	Park	Pharmacy	Pizza Place	Playground	Plaza	Pub	Rental Car Location	Rental Service	Restaurant	Rock Club	Sake Bar	Sandwich Place	Science Museum	Seafood Restaurant	Shipping Store	Shoe Store	Shopping Mall	Smoke Shop	Smoothie Shop	Snack Place	Spa	Spanish Restaurant	Sporting Goods Shop	Stadium	Steakhouse	Supermarket	Tapas Restaurant	Thai Restaurant	Theater	Theme Park Ride / Attraction	Toy / Game Store	Vegetarian / Vegan Restaurant	Video Store	Vietnamese Restaurant	Wine Bar	Wine Shop	Yoga Studio
+0	Asylum Hill	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+1	Asylum Hill	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+2	Asylum Hill	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+3	Asylum Hill	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+4	Asylum Hill	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	1	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0	0
+In [40]:
+bdl_grouped = bdl_onehot.groupby('Neighborhood').mean().reset_index()
+bdl_grouped.head()
+Out[40]:
+Neighborhood	Accessories Store	American Restaurant	Art Museum	Arts & Entertainment	Asian Restaurant	Athletics & Sports	BBQ Joint	Bagel Shop	Bakery	Bank	Bar	Baseball Field	Baseball Stadium	Bistro	Bookstore	Boutique	Bowling Alley	Brewery	Bubble Tea Shop	Burger Joint	Bus Station	Café	Caribbean Restaurant	Chinese Restaurant	Churrascaria	Cocktail Bar	Coffee Shop	College Gym	Concert Hall	Construction & Landscaping	Convenience Store	Cupcake Shop	Cycle Studio	Deli / Bodega	Dessert Shop	Diner	Discount Store	Donut Shop	Event Space	Fast Food Restaurant	Financial or Legal Service	Food	Food & Drink Shop	Food Court	Food Truck	French Restaurant	Furniture / Home Store	Gas Station	Gift Shop	Grocery Store	Gym	Gym / Fitness Center	Hardware Store	Health & Beauty Service	History Museum	Hockey Arena	Hot Dog Joint	Hotel	Hotel Bar	Ice Cream Shop	Indian Restaurant	Insurance Office	Italian Restaurant	Japanese Restaurant	Jewelry Store	Kebab Restaurant	Korean Restaurant	Latin American Restaurant	Lebanese Restaurant	Lingerie Store	Liquor Store	Mediterranean Restaurant	Mexican Restaurant	Middle Eastern Restaurant	Miscellaneous Shop	Motel	Motorcycle Shop	Movie Theater	Music Store	Nightclub	Optical Shop	Other Nightlife	Park	Pharmacy	Pizza Place	Playground	Plaza	Pub	Rental Car Location	Rental Service	Restaurant	Rock Club	Sake Bar	Sandwich Place	Science Museum	Seafood Restaurant	Shipping Store	Shoe Store	Shopping Mall	Smoke Shop	Smoothie Shop	Snack Place	Spa	Spanish Restaurant	Sporting Goods Shop	Stadium	Steakhouse	Supermarket	Tapas Restaurant	Thai Restaurant	Theater	Theme Park Ride / Attraction	Toy / Game Store	Vegetarian / Vegan Restaurant	Video Store	Vietnamese Restaurant	Wine Bar	Wine Shop	Yoga Studio
+0	Asylum Hill	0.0	0.0	0.0	0.166667	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.333333	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.166667	0.00	0.166667	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.166667	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+1	Barry Square	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.2	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.4	0.000000	0.00	0.000000	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.4	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+2	Behind The Rocks	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.5	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.00	0.000000	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.5	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+3	Blue Hills	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.25	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.00	0.000000	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+4	Clay Arsenal	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.25	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.25	0.000000	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.000000	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.00	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.25	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0	0.0
+In [41]:
+# Define a function for top venus for a neighborhood
+num_top_venues=10
+def return_most_common_venues(row, num_top_venues):
+    row_categories = row.iloc[1:]
+    row_categories_sorted = row_categories.sort_values(ascending=False)
+    
+    return row_categories_sorted.index.values[0:num_top_venues]
+In [44]:
+num_top_venues = 10
+
+indicators = ['st', 'nd', 'rd']
+
+# create columns according to number of top venues
+columns = ['Neighborhood']
+for ind in np.arange(num_top_venues):
+    try:
+        columns.append('{}{} Most Common Venue'.format(ind+1, indicators[ind]))
+    except:
+        columns.append('{}th Most Common Venue'.format(ind+1))
+
+# create a new dataframe
+pvd_neighborhoods_venues_sorted = pd.DataFrame(columns=columns)
+pvd_neighborhoods_venues_sorted['Neighborhood'] = pvd_grouped['Neighborhood']
+
+for ind in np.arange(pvd_grouped.shape[0]):
+    pvd_neighborhoods_venues_sorted.iloc[ind, 1:] = return_most_common_venues(pvd_grouped.iloc[ind, :], num_top_venues)
+
+pvd_neighborhoods_venues_sorted.head()
+Out[44]:
+Neighborhood	1st Most Common Venue	2nd Most Common Venue	3rd Most Common Venue	4th Most Common Venue	5th Most Common Venue	6th Most Common Venue	7th Most Common Venue	8th Most Common Venue	9th Most Common Venue	10th Most Common Venue
+0	Charles	Food	Park	Plaza	Discount Store	Deli / Bodega	Farmers Market	Breakfast Spot	Liquor Store	Fish Market	French Restaurant
+1	College Hill	Korean Restaurant	Coffee Shop	American Restaurant	Café	Mexican Restaurant	Pizza Place	Bubble Tea Shop	Ice Cream Shop	Pharmacy	Performing Arts Venue
+2	Downtown	Bar	Coffee Shop	Gay Bar	Hotel	New American Restaurant	Restaurant	American Restaurant	Burger Joint	Hockey Arena	Italian Restaurant
+3	Elmhurst	Playground	Liquor Store	Clothing Store	Rental Car Location	Bakery	French Restaurant	Food Truck	Food	Fish Market	Farmers Market
+4	Elmwood	Diner	Sandwich Place	Supermarket	Liquor Store	Yoga Studio	Fast Food Restaurant	French Restaurant	Food Truck	Food	Fish Market
+In [46]:
+num_top_venues = 10
+
+indicators = ['st', 'nd', 'rd']
+
+# create columns according to number of top venues
+columns = ['Neighborhood']
+for ind in np.arange(num_top_venues):
+    try:
+        columns.append('{}{} Most Common Venue'.format(ind+1, indicators[ind]))
+    except:
+        columns.append('{}th Most Common Venue'.format(ind+1))
+
+bdl_neighborhoods_venues_sorted = pd.DataFrame(columns=columns)
+bdl_neighborhoods_venues_sorted['Neighborhood'] = bdl_grouped['Neighborhood']
+
+for ind in np.arange(bdl_grouped.shape[0]):
+    bdl_neighborhoods_venues_sorted.iloc[ind, 1:] = return_most_common_venues(bdl_grouped.iloc[ind, :], num_top_venues)
+
+bdl_neighborhoods_venues_sorted.head()
+Out[46]:
+Neighborhood	1st Most Common Venue	2nd Most Common Venue	3rd Most Common Venue	4th Most Common Venue	5th Most Common Venue	6th Most Common Venue	7th Most Common Venue	8th Most Common Venue	9th Most Common Venue	10th Most Common Venue
+0	Asylum Hill	Café	Arts & Entertainment	Park	Gift Shop	Gym	Yoga Studio	Donut Shop	Financial or Legal Service	Fast Food Restaurant	Event Space
+1	Barry Square	Rock Club	Gas Station	College Gym	Yoga Studio	Food & Drink Shop	Cupcake Shop	Cycle Studio	Deli / Bodega	Dessert Shop	Diner
+2	Behind The Rocks	Pharmacy	Bus Station	Yoga Studio	Convenience Store	Cycle Studio	Deli / Bodega	Dessert Shop	Diner	Discount Store	Donut Shop
+3	Blue Hills	Sandwich Place	Donut Shop	Burger Joint	Baseball Stadium	Yoga Studio	Food Court	Cycle Studio	Deli / Bodega	Dessert Shop	Diner
+4	Clay Arsenal	Spanish Restaurant	Gym / Fitness Center	Discount Store	Grocery Store	Food Court	Cupcake Shop	Cycle Studio	Deli / Bodega	Dessert Shop	Diner
+In [47]:
+# set number of clusters
+kclusters = 5
+
+pvd_grouped_clustering = pvd_grouped.drop('Neighborhood', 1)
+
+# run k-means clustering
+pvd_kmeans = KMeans(n_clusters=kclusters, random_state=0).fit(pvd_grouped_clustering)
+
+# check cluster labels generated for each row in the dataframe
+pvd_kmeans.labels_[0:10]
+Out[47]:
+array([0, 0, 0, 1, 4, 0, 0, 0, 0, 3])
+In [52]:
+pvd_merged = df_pvd
+
+
+pvd_merged['Cluster Labels'] = pvd_kmeans.labels_
+
+
+pvd_merged = pvd_merged.join(pvd_neighborhoods_venues_sorted.set_index('Neighborhood'), on='Neighborhood')
+
+
+pvd_merged.head()
+---------------------------------------------------------------------------
+ValueError                                Traceback (most recent call last)
+<ipython-input-52-9b11bd9dccf9> in <module>
+      2 
+      3 
+----> 4 pvd_merged['Cluster Labels'] = pvd_kmeans.labels_
+      5 
+      6 
+
+D:\Anaconda\lib\site-packages\pandas\core\frame.py in __setitem__(self, key, value)
+   3117         else:
+   3118             # set column
+-> 3119             self._set_item(key, value)
+   3120 
+   3121     def _setitem_slice(self, key, value):
+
+D:\Anaconda\lib\site-packages\pandas\core\frame.py in _set_item(self, key, value)
+   3192 
+   3193         self._ensure_valid_index(value)
+-> 3194         value = self._sanitize_column(key, value)
+   3195         NDFrame._set_item(self, key, value)
+   3196 
+
+D:\Anaconda\lib\site-packages\pandas\core\frame.py in _sanitize_column(self, key, value, broadcast)
+   3389 
+   3390             # turn me into an ndarray
+-> 3391             value = _sanitize_index(value, self.index, copy=False)
+   3392             if not isinstance(value, (np.ndarray, Index)):
+   3393                 if isinstance(value, list) and len(value) > 0:
+
+D:\Anaconda\lib\site-packages\pandas\core\series.py in _sanitize_index(data, index, copy)
+   3999 
+   4000     if len(data) != len(index):
+-> 4001         raise ValueError('Length of values does not match length of ' 'index')
+   4002 
+   4003     if isinstance(data, ABCIndexClass) and not copy:
+
+ValueError: Length of values does not match length of index
+In [ ]:
